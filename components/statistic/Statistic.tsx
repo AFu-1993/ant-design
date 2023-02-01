@@ -1,16 +1,12 @@
 import classNames from 'classnames';
 import * as React from 'react';
-
 import type { ConfigConsumerProps } from '../config-provider';
-import { withConfigConsumer } from '../config-provider/context';
+import { ConfigContext } from '../config-provider';
 import Skeleton from '../skeleton';
-import type Countdown from './Countdown';
 import StatisticNumber from './Number';
 import type { FormatConfig, valueType } from './utils';
-
-interface StatisticComponent {
-  Countdown: typeof Countdown;
-}
+import useStyle from './style';
+import Countdown from './Countdown';
 
 export interface StatisticProps extends FormatConfig {
   prefixCls?: string;
@@ -27,9 +23,13 @@ export interface StatisticProps extends FormatConfig {
   onMouseLeave?: React.MouseEventHandler<HTMLDivElement>;
 }
 
-const Statistic: React.FC<StatisticProps & ConfigConsumerProps> = props => {
+type CompoundedComponent = {
+  Countdown: typeof Countdown;
+};
+
+const Statistic: React.FC<StatisticProps> & CompoundedComponent = (props) => {
   const {
-    prefixCls,
+    prefixCls: customizePrefixCls,
     className,
     style,
     valueStyle,
@@ -38,20 +38,39 @@ const Statistic: React.FC<StatisticProps & ConfigConsumerProps> = props => {
     valueRender,
     prefix,
     suffix,
-    loading,
-    direction,
+    loading = false,
     onMouseEnter,
     onMouseLeave,
+    decimalSeparator = '.',
+    groupSeparator = ',',
   } = props;
-  const valueNode = <StatisticNumber {...props} value={value} />;
+
+  const { getPrefixCls, direction } = React.useContext<ConfigConsumerProps>(ConfigContext);
+
+  const prefixCls = getPrefixCls('statistic', customizePrefixCls);
+
+  const [wrapSSR, hashId] = useStyle(prefixCls);
+
+  const valueNode: React.ReactNode = (
+    <StatisticNumber
+      decimalSeparator={decimalSeparator}
+      groupSeparator={groupSeparator}
+      prefixCls={prefixCls}
+      {...props}
+      value={value}
+    />
+  );
+
   const cls = classNames(
     prefixCls,
     {
       [`${prefixCls}-rtl`]: direction === 'rtl',
     },
     className,
+    hashId,
   );
-  return (
+
+  return wrapSSR(
     <div className={cls} style={style} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       {title && <div className={`${prefixCls}-title`}>{title}</div>}
       <Skeleton paragraph={false} loading={loading} className={`${prefixCls}-skeleton`}>
@@ -61,18 +80,14 @@ const Statistic: React.FC<StatisticProps & ConfigConsumerProps> = props => {
           {suffix && <span className={`${prefixCls}-content-suffix`}>{suffix}</span>}
         </div>
       </Skeleton>
-    </div>
+    </div>,
   );
 };
 
-Statistic.defaultProps = {
-  decimalSeparator: '.',
-  groupSeparator: ',',
-  loading: false,
-};
+if (process.env.NODE_ENV !== 'production') {
+  Statistic.displayName = 'Statistic';
+}
 
-const WrapperStatistic = withConfigConsumer<StatisticProps>({
-  prefixCls: 'statistic',
-})<StatisticComponent>(Statistic);
+Statistic.Countdown = Countdown;
 
-export default WrapperStatistic;
+export default Statistic;

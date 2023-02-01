@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { ConfigContext } from '../../config-provider';
-import LocaleReceiver from '../../locale-provider/LocaleReceiver';
-import defaultLocale from '../../locale/default';
+import LocaleReceiver from '../../locale/LocaleReceiver';
+import defaultLocale from '../../locale/en_US';
 import ConfirmDialog from '../ConfirmDialog';
 import type { ModalFuncProps } from '../Modal';
 
@@ -15,17 +15,11 @@ export interface HookModalRef {
   update: (config: ModalFuncProps) => void;
 }
 
-interface ModalLocale {
-  okText: string;
-  cancelText: string;
-  justOkText: string;
-}
-
 const HookModal: React.ForwardRefRenderFunction<HookModalRef, HookModalProps> = (
   { afterClose, config },
   ref,
 ) => {
-  const [visible, setVisible] = React.useState(true);
+  const [open, setOpen] = React.useState(true);
   const [innerConfig, setInnerConfig] = React.useState(config);
   const { direction, getPrefixCls } = React.useContext(ConfigContext);
 
@@ -33,39 +27,40 @@ const HookModal: React.ForwardRefRenderFunction<HookModalRef, HookModalProps> = 
   const rootPrefixCls = getPrefixCls();
 
   const close = (...args: any[]) => {
-    setVisible(false);
-    const triggerCancel = args.some(param => param && param.triggerCancel);
+    setOpen(false);
+    const triggerCancel = args.some((param) => param && param.triggerCancel);
     if (innerConfig.onCancel && triggerCancel) {
-      innerConfig.onCancel();
+      innerConfig.onCancel(() => {}, ...args.slice(1));
     }
   };
 
   React.useImperativeHandle(ref, () => ({
     destroy: close,
     update: (newConfig: ModalFuncProps) => {
-      setInnerConfig(originConfig => ({
+      setInnerConfig((originConfig) => ({
         ...originConfig,
         ...newConfig,
       }));
     },
   }));
 
+  const mergedOkCancel = innerConfig.okCancel ?? innerConfig.type === 'confirm';
+
   return (
     <LocaleReceiver componentName="Modal" defaultLocale={defaultLocale.Modal}>
-      {(modalLocale: ModalLocale) => (
+      {(contextLocale) => (
         <ConfirmDialog
           prefixCls={prefixCls}
           rootPrefixCls={rootPrefixCls}
           {...innerConfig}
           close={close}
-          visible={visible}
+          open={open}
           afterClose={afterClose}
           okText={
-            innerConfig.okText ||
-            (innerConfig.okCancel ? modalLocale.okText : modalLocale.justOkText)
+            innerConfig.okText || (mergedOkCancel ? contextLocale.okText : contextLocale.justOkText)
           }
           direction={direction}
-          cancelText={innerConfig.cancelText || modalLocale.cancelText}
+          cancelText={innerConfig.cancelText || contextLocale.cancelText}
         />
       )}
     </LocaleReceiver>
